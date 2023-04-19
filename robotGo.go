@@ -70,7 +70,6 @@ func runCmd(table Rect, robot RobotStruct, action string) (int, int) {
 				robot.Y = proposedPos.Northing
 			}
 		case 0:
-			// fmt.Printf("final position: %v, %v", robot.X, robot.Y)
 			break
 		default:
 			log.Fatal("invalid order")
