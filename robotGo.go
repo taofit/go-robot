@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -14,19 +15,9 @@ const (
 	S
 	W
 )
-
 const direction_max = 4
 
-// var directions = [direction_max]string{"North", "East", "South", "West"}
-var moveValues = map[Dir]int{N: -1, S: 1, E: 1, W: -1}
-
-// func Right() {
-// 	Robot.Dir = rotate(3, Robot.Dir)
-// }
-
-// func Left() {
-// 	Robot.Dir = rotate(4, Robot.Dir)
-// }
+var moveValues = getMoveValues()
 
 func rotate(order int, aspect Dir) Dir {
 	switch order {
@@ -39,49 +30,57 @@ func rotate(order int, aspect Dir) Dir {
 	}
 }
 
-// func Advance() {
-// 	switch Robot.Dir {
-// 	case N, S:
-// 		Robot.Y = move(Robot.Dir, Robot.X, Robot.Y)
-// 	case E, W:
-// 		Robot.X = move(Robot.Dir, Robot.X, Robot.Y)
-// 	}
-// }
+func getMoveValues() map[string]int {
+	var moveValues = make(map[string]int)
 
-func move(aspect Dir, X int, Y int) int {
-	switch aspect {
-	case N, S:
-		return Y + moveValues[aspect]
-	case E, W:
-		return X + moveValues[aspect]
-	default:
-		panic("invalid aspect")
-	}
+	key := fmt.Sprintf("%d-%d", N, 1)
+	moveValues[key] = -1
+	key = fmt.Sprintf("%d-%d", N, 2)
+	moveValues[key] = 1
+
+	key = fmt.Sprintf("%d-%d", S, 1)
+	moveValues[key] = 1
+	key = fmt.Sprintf("%d-%d", S, 2)
+	moveValues[key] = -1
+
+	key = fmt.Sprintf("%d-%d", E, 1)
+	moveValues[key] = 1
+	key = fmt.Sprintf("%d-%d", E, 2)
+	moveValues[key] = -1
+
+	key = fmt.Sprintf("%d-%d", W, 1)
+	moveValues[key] = -1
+	key = fmt.Sprintf("%d-%d", W, 2)
+	moveValues[key] = 1
+
+	return moveValues
 }
 
-func runCmd(table Rect, robot RobotStruct, action string) {
+func runCmd(table Rect, robot RobotStruct, action string) (int, int) {
 	actionArr := strings.Split(action, ",")
 	for _, order := range actionArr {
-		orderInt, _ := strconv.Atoi(order)
+		tempOrder, _ := strconv.Atoi(order)
 
-		switch orderInt {
+		switch tempOrder {
 		case 3, 4:
-			robot.Dir = rotate(orderInt, robot.Dir)
-		case 1:
-			if proposedPos, isValid := makeAMove(table, robot); isValid {
+			robot.Dir = rotate(tempOrder, robot.Dir)
+		case 1, 2:
+			if proposedPos, isValid := makeAMove(table, robot, tempOrder); isValid {
 				robot.X = proposedPos.Easting
 				robot.Y = proposedPos.Northing
 			}
 		case 0:
-			fmt.Printf("final position: %v, %v", robot.X, robot.Y)
+			// fmt.Printf("final position: %v, %v", robot.X, robot.Y)
+			break
 		default:
-			panic("invalid order")
+			log.Fatal("invalid order")
 		}
 	}
-	fmt.Printf("final position: %v, %v", robot.X, robot.Y)
+
+	return robot.X, robot.Y
 }
 
-func makeAMove(table Rect, robot RobotStruct) (Pos, bool) {
+func makeAMove(table Rect, robot RobotStruct, forOrBackWard int) (Pos, bool) {
 	var proposedPos Pos
 	proposedPos.Easting = robot.X
 	proposedPos.Northing = robot.Y
@@ -90,9 +89,9 @@ func makeAMove(table Rect, robot RobotStruct) (Pos, bool) {
 
 	switch aspect {
 	case N, S:
-		proposedPos.Northing = move(aspect, robot.X, robot.Y)
+		proposedPos.Northing = move(robot, forOrBackWard)
 	case E, W:
-		proposedPos.Easting = move(aspect, robot.X, robot.Y)
+		proposedPos.Easting = move(robot, forOrBackWard)
 	default:
 		panic("invalid aspect")
 	}
@@ -101,56 +100,102 @@ func makeAMove(table Rect, robot RobotStruct) (Pos, bool) {
 }
 
 func (t Rect) contains(pos Pos) bool {
-	return pos.Easting <= t.Width && pos.Northing <= t.Height
+	return 0 <= pos.Easting && pos.Easting <= t.Width && 0 <= pos.Northing && pos.Northing <= t.Height
+}
+
+func move(robot RobotStruct, forOrBackWard int) int {
+	aspect := robot.Dir
+	key := fmt.Sprintf("%d-%d", aspect, forOrBackWard)
+	Y := robot.Y
+	X := robot.X
+
+	switch aspect {
+	case N, S:
+		return Y + moveValues[key]
+	case E, W:
+		return X + moveValues[key]
+	default:
+		panic("invalid aspect")
+	}
 }
 
 func initInput(action string) (RobotStruct, Rect) {
 	inputArr := strings.Split(action, ",")
-
+	if len(inputArr) != 4 {
+		log.Fatal("inital data length is wrong")
+	}
 	var table Rect
 	var robot RobotStruct
 
-	table.Width, _ = strconv.Atoi(inputArr[0])
-	table.Height, _ = strconv.Atoi(inputArr[1])
+	var err error
+	table.Width, err = strconv.Atoi(inputArr[0])
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	table.Height, err = strconv.Atoi(inputArr[1])
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
 	robot.Dir = N
-	var err error
-	robot.X, _ = strconv.Atoi(inputArr[2])
+	robot.X, err = strconv.Atoi(inputArr[2])
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	robot.Y, err = strconv.Atoi(inputArr[3])
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatal(err.Error())
 	}
-	fmt.Println(robot.Dir, robot.X, robot.Y)
+
+	checkInitInput(table, robot)
+
 	return robot, table
 }
 
-func main() {
-	fmt.Printf("Enter initial data input separated by comma: ")
+func checkInitInput(table Rect, robot RobotStruct) {
+	if table.Width <= 0 || table.Height <= 0 {
+		log.Fatal("table size is wrong")
+	}
+	if robot.X < 0 || robot.Y < 0 {
+		log.Fatal("robot inital location is wrong")
+	}
+
+	if table.Width <= robot.X || table.Height <= robot.Y {
+		log.Fatal("robot is not in table")
+	}
+}
+
+func getRobotAndTable() (RobotStruct, Rect) {
+	fmt.Printf("Enter table size and robot initial position separated by comma: ")
 	reader := bufio.NewReader(os.Stdin)
-	// ReadString will block until the delimiter is entered
 	initData, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Println("An error occured while reading input. Please try again", err)
-		return
+		log.Fatal(err)
 	}
 
-	// remove the delimeter from the string
 	initData = strings.TrimSpace(initData)
-	// fmt.Println(initData)
 	robot, table := initInput(initData)
 
+	return robot, table
+}
+
+func executeCmd(table Rect, robot RobotStruct) {
 	fmt.Print("Enter commands separated by comma: ")
-	reader = bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(os.Stdin)
 	// ReadString will block until the delimiter is entered
 	action, err := reader.ReadString('\n')
-	action = strings.Replace(action, "2", "3,3,1", -1)
 	if err != nil {
-		fmt.Println("An error occured while reading input. Please try again", err)
-		return
+		log.Fatal(err)
 	}
 
-	// remove the delimeter from the string
 	action = strings.TrimSpace(action)
-	fmt.Println(action)
-	runCmd(table, robot, action)
+	x, y := runCmd(table, robot, action)
+	fmt.Printf("final position: %v, %v", x, y)
+}
+
+func main() {
+	robot, table := getRobotAndTable()
+	executeCmd(table, robot)
 }
